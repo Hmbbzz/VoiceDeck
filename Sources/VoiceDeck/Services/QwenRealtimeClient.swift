@@ -45,6 +45,13 @@ final class QwenRealtimeClient {
         ])
     }
 
+    func appendImage(_ image: Data) {
+        send([
+            "type": "input_image_buffer.append",
+            "image": image.base64EncodedString()
+        ])
+    }
+
     func commitAudio() {
         shouldCreateResponse = true
         send(["type": "input_audio_buffer.commit"])
@@ -84,8 +91,8 @@ final class QwenRealtimeClient {
                 handle(text)
             }
             receiveNext(from: socket)
-        case .failure:
-            failConnection()
+        case let .failure(error):
+            failConnection(message: error.localizedDescription)
         }
     }
 
@@ -159,7 +166,7 @@ final class QwenRealtimeClient {
                     self.outboundMessages.removeFirst()
                     self.sendNextMessage()
                 } else {
-                    self.failConnection()
+                    self.failConnection(message: error?.localizedDescription)
                 }
             }
         }
@@ -173,7 +180,8 @@ final class QwenRealtimeClient {
            explanation?.localizedCaseInsensitiveContains("not supported") == true {
             emit(.failed("百炼不支持当前音色配置。请更新到最新版后重新尝试。"))
         } else {
-            emit(.failed(explanation?.isEmpty == false ? explanation! : "无法连接百炼实时服务。请检查业务空间 ID、API Key 是否属于北京地域，然后重试。"))
+            let details = explanation?.isEmpty == false ? "（\(explanation!)）" : ""
+            emit(.failed("无法连接百炼实时服务\(details)。请检查业务空间 ID、API Key 是否属于北京地域，然后重试。"))
         }
     }
 

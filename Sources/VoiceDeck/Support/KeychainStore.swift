@@ -6,7 +6,7 @@ enum KeychainKey: String {
 }
 
 enum KeychainStore {
-    private static let service = "com.bobhe.voicedeck"
+    private static let service = "com.bobhe.voicedeck.capture"
     private static var cachedValues: [KeychainKey: String] = [:]
 
     static func value(for key: KeychainKey) -> String? {
@@ -27,16 +27,22 @@ enum KeychainStore {
     }
 
     static func save(_ value: String, for key: KeychainKey) throws {
-        let deleteQuery: [String: Any] = [
+        let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: key.rawValue
         ]
-        SecItemDelete(deleteQuery as CFDictionary)
-        let addQuery: [String: Any] = deleteQuery.merging([
+        let attributes: [String: Any] = [
             kSecValueData as String: Data(value.utf8)
-        ]) { _, new in new }
-        let status = SecItemAdd(addQuery as CFDictionary, nil)
+        ]
+        let updateStatus = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
+        let status: OSStatus
+        if updateStatus == errSecItemNotFound {
+            let addQuery = query.merging(attributes) { _, new in new }
+            status = SecItemAdd(addQuery as CFDictionary, nil)
+        } else {
+            status = updateStatus
+        }
         guard status == errSecSuccess else { throw KeychainError.unableToSave(status) }
         cachedValues[key] = value
     }

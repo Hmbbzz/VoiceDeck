@@ -1,22 +1,26 @@
-# Voice Deck
+# Voicedeck
 
 > 中文 | English
 
-Voice Deck 是一款 macOS 按住说话桌面助手：按住 `Option + Z` 说话，松开后发送，并可在设定时间内延续同一段语音对话。
+Voicedeck 是一款 macOS 按住说话桌面助手：按住 `Option + Z` 说话，松开后发送；按下 `Option + X` 可将当前最上方窗口截图加入下一轮对话上下文。
 
-Voice Deck is a macOS push-to-talk desktop assistant. Hold `Option + Z` to speak, release to send, and continue the same voice conversation within the configured time window.
+Voicedeck is a macOS push-to-talk desktop assistant. Hold `Option + Z` to speak, release to send, and press `Option + X` to add a screenshot of the frontmost window to the next voice request.
 
 ## 功能 / Features
 
-- 全局按住说话快捷键：`Option + Z`  
+- 全局按住说话快捷键：`Option + Z`
   Global push-to-talk shortcut: `Option + Z`
-- 通义 Qwen Omni Realtime 统一处理语音输入、回答生成与语音播放  
+- 窗口截图上下文快捷键：`Option + X`，需要 macOS 屏幕录制权限
+  Frontmost-window screenshot context: `Option + X`, requires macOS Screen Recording permission
+- 可选择输入麦克风；录音和截图都有不抢焦点的小浮窗反馈
+  Choose an input microphone, with unobtrusive floating feedback for recording and screenshots
+- 通义 Qwen Omni Realtime 统一处理语音输入、回答生成与语音播放
   Qwen Omni Realtime handles voice input, response generation, and voice playback.
-- 对话历史支持置顶、归档、删除与重命名  
+- 对话历史支持置顶、归档、删除与重命名
   Conversation history supports pinning, archiving, deletion, and renaming.
-- 可选择回复音色和上下文延续时间  
+- 可选择回复音色和上下文延续时间
   Configure the reply voice and continuation window.
-- 原生 macOS SwiftUI 界面  
+- 原生 macOS SwiftUI 界面
   Native macOS SwiftUI interface.
 
 ## 环境要求 / Requirements
@@ -31,9 +35,9 @@ Voice Deck is a macOS push-to-talk desktop assistant. Hold `Option + Z` to speak
 ./script/build_and_run.sh
 ```
 
-从工具栏齿轮进入设置，填写自己的 DashScope API Key 与业务空间 ID。API Key 仅保存在本机 macOS 钥匙串中，绝不会被写入此仓库。
+从工具栏齿轮进入设置，填写自己的 DashScope API Key 与业务空间 ID。首次使用截图功能时，从设置中的“屏幕录制权限”部分请求并允许 Voicedeck 录制屏幕；授权后请完全退出并重新打开应用。API Key 仅保存在本机 macOS 钥匙串中，绝不会被写入此仓库。
 
-Open Settings from the toolbar and enter your own DashScope API Key and workspace ID. The API Key is stored only in your local macOS Keychain and is never committed to this repository.
+Open Settings from the toolbar and enter your own DashScope API Key and workspace ID. For screenshots, request and grant Screen Recording access in Settings, then fully quit and reopen the app. The API Key is stored only in your local macOS Keychain and is never committed to this repository.
 
 ## 构建验证 / Build Verification
 
@@ -45,7 +49,7 @@ swiftc Sources/VoiceDeck/Services/QwenRealtimeConfiguration.swift \
 /tmp/voicedeck-realtime-tests
 ```
 
-生成并启动可运行的 App 包：
+生成并启动 `dist/Voicedeck.app`：
 
 Create and launch a runnable app bundle:
 

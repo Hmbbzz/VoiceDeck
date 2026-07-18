@@ -2,8 +2,9 @@
 set -euo pipefail
 
 MODE="${1:-run}"
-APP_NAME="VoiceDeck"
-BUNDLE_ID="com.bobhe.voicedeck"
+APP_NAME="Voicedeck"
+BUILD_PRODUCT="VoiceDeck"
+BUNDLE_ID="com.bobhe.voicedeck.capture"
 MIN_SYSTEM_VERSION="14.0"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -21,9 +22,8 @@ ICON_FILE="$APP_RESOURCES/AppIcon.icns"
 pkill -x "$APP_NAME" >/dev/null 2>&1 || true
 
 swift build
-BUILD_BINARY="$(swift build --show-bin-path)/$APP_NAME"
+BUILD_BINARY="$(swift build --show-bin-path)/$BUILD_PRODUCT"
 
-rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_MACOS" "$APP_RESOURCES"
 cp "$BUILD_BINARY" "$APP_BINARY"
 chmod +x "$APP_BINARY"
@@ -49,6 +49,8 @@ cat >"$INFO_PLIST" <<PLIST
   <string>$BUNDLE_ID</string>
   <key>CFBundleName</key>
   <string>$APP_NAME</string>
+  <key>CFBundleDisplayName</key>
+  <string>$APP_NAME</string>
   <key>CFBundleIconFile</key>
   <string>AppIcon</string>
   <key>CFBundlePackageType</key>
@@ -59,6 +61,8 @@ cat >"$INFO_PLIST" <<PLIST
   <string>NSApplication</string>
   <key>NSMicrophoneUsageDescription</key>
   <string>Voice Deck uses your microphone to turn a spoken question into text.</string>
+  <key>NSScreenCaptureUsageDescription</key>
+  <string>Voice Deck captures the frontmost window when you choose to add it as conversation context.</string>
 </dict>
 </plist>
 PLIST

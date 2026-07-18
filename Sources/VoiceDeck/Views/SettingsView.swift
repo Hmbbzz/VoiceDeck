@@ -6,8 +6,11 @@ struct SettingsView: View {
     @AppStorage("voiceDeck.playResponses") private var playResponses = true
     @AppStorage("voiceDeck.dashScopeWorkspaceID") private var workspaceID = ""
     @AppStorage(QwenRealtimeConfiguration.voicePreferenceKey) private var voice = QwenRealtimeConfiguration.defaultVoice
+    @AppStorage(AudioInputDevice.preferenceKey) private var inputDeviceUID = ""
     @State private var dashScopeAPIKey = ""
     @State private var saveMessage: String?
+    @State private var screenCaptureMessage: String?
+    @State private var inputDevices = AudioInputDevice.availableDevices()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -26,6 +29,26 @@ struct SettingsView: View {
 
             Form {
             Section("语音与上下文") {
+                Picker("输入设备", selection: $inputDeviceUID) {
+                    Text("系统默认（\(AudioInputDevice.defaultDeviceName() ?? "未检测到"))")
+                        .tag("")
+                    ForEach(inputDevices) { device in
+                        Text(device.name).tag(device.uid)
+                    }
+                }
+                .pickerStyle(.menu)
+                HStack(spacing: 8) {
+                    Text("选择后将在下一次录音时生效。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Button {
+                        inputDevices = AudioInputDevice.availableDevices()
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    .buttonStyle(.plain)
+                    .help("刷新输入设备")
+                }
                 Toggle("回答后自动朗读", isOn: $playResponses)
                 Picker("回复音色", selection: $voice) {
                     ForEach(QwenRealtimeConfiguration.voices) { option in
@@ -52,6 +75,22 @@ struct SettingsView: View {
                 Text("按住快捷键说话，松开后发送。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                LabeledContent("截取窗口上下文") {
+                    Text("Option + X")
+                        .monospaced()
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Section("屏幕录制权限") {
+                Button("请求屏幕录制权限", systemImage: "rectangle.inset.filled.badge.record") {
+                    screenCaptureMessage = WindowCaptureService.requestScreenCaptureAccess()
+                }
+                if let screenCaptureMessage {
+                    Text(screenCaptureMessage)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             Section("阿里百炼") {

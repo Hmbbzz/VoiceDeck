@@ -63,8 +63,11 @@ struct VoiceComposer: View {
     }
 
     private var caption: String {
-        switch voiceSession.state {
-        case .idle: "全局快捷键 Option + Z"
+        if let contextName = voiceSession.pendingWindowContextName, voiceSession.state == .idle {
+            return "已添加窗口截图：\(contextName)。Option + X 可更新"
+        }
+        return switch voiceSession.state {
+        case .idle: "全局快捷键 Option + Z；截图上下文 Option + X"
         case .recording: "正在聆听"
         case .thinking: "再次点击可以取消"
         case .failed: "点击后可以重新尝试"
