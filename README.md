@@ -1,64 +1,83 @@
-# Voicedeck
+# VoiceDeck
 
-> 中文 | English
+VoiceDeck is a native macOS desktop assistant for asking about the work already in front of you. Hold a global shortcut to speak, or capture the frontmost window and ask about it in the same turn.
 
-Voicedeck 是一款 macOS 按住说话桌面助手：按住 `Option + Z` 说话，松开后发送；按下 `Option + X` 可将当前最上方窗口截图加入下一轮对话上下文。
+中文桌面语音助手：按住快捷键说话，松开后发送；也可以同时附带当前前台窗口截图，让多模态模型理解屏幕上下文。
 
-Voicedeck is a macOS push-to-talk desktop assistant. Hold `Option + Z` to speak, release to send, and press `Option + X` to add a screenshot of the frontmost window to the next voice request.
+## Highlights
 
-## 功能 / Features
+- Global push-to-talk: hold `Option + Z`, then release to send.
+- Visual voice question: hold `Option + X` to capture the frontmost window and record in parallel. A successful capture is attached to the same user message before it is sent to the model.
+- Compact non-activating floating indicator with live transcript feedback.
+- Adaptive voice gate prevents silence and incidental noise from reaching transcription.
+- Qwen Realtime transcription through Alibaba Cloud Model Studio (DashScope).
+- Multimodal conversation providers: Qwen, OpenAI, Kimi, and GLM. The model picker only exposes image-capable models.
+- Streaming text responses, persistent conversation history, automatic titles from the first exchange, screenshot attachments, and full-size image preview.
+- Bailian TTS for all responses, selectable voice, and a stop-speaking control while audio is playing.
+- Configurable input microphone, conversation continuation window, screen-capture permission flow, and local macOS Keychain storage for API keys.
 
-- 全局按住说话快捷键：`Option + Z`
-  Global push-to-talk shortcut: `Option + Z`
-- 窗口截图上下文快捷键：`Option + X`，需要 macOS 屏幕录制权限
-  Frontmost-window screenshot context: `Option + X`, requires macOS Screen Recording permission
-- 可选择输入麦克风；录音和截图都有不抢焦点的小浮窗反馈
-  Choose an input microphone, with unobtrusive floating feedback for recording and screenshots
-- 通义 Qwen Omni Realtime 统一处理语音输入、回答生成与语音播放
-  Qwen Omni Realtime handles voice input, response generation, and voice playback.
-- 对话历史支持置顶、归档、删除与重命名
-  Conversation history supports pinning, archiving, deletion, and renaming.
-- 可选择回复音色和上下文延续时间
-  Configure the reply voice and continuation window.
-- 原生 macOS SwiftUI 界面
-  Native macOS SwiftUI interface.
+## Requirements
 
-## 环境要求 / Requirements
+- macOS 14 or later
+- Swift 5.10 or later / Xcode Command Line Tools
+- A DashScope API Key and Beijing-region Model Studio workspace ID for transcription and Bailian TTS
+- API keys for any optional conversation provider you enable
 
-- macOS 14 或更高版本 / macOS 14 or later
-- 带 Swift 5.10 或更高版本的 Xcode Command Line Tools / Xcode Command Line Tools with Swift 5.10 or later
-- 阿里云百炼（DashScope）API Key 与北京地域业务空间 ID / Alibaba Cloud Model Studio (DashScope) API Key and a Beijing workspace ID
+## Configure
 
-## 本地运行 / Run Locally
+Open Settings in the app and configure:
+
+1. DashScope workspace ID and API Key. This is required for voice transcription and speech playback.
+2. An input microphone and optional TTS voice.
+3. A conversation provider and its API Key. Qwen reuses the DashScope key; OpenAI, Kimi, and GLM store their own key in macOS Keychain.
+4. Screen Recording permission before using `Option + X`. macOS may require a full application relaunch after granting this permission.
+
+Keys are never written to this repository. They are saved locally in macOS Keychain only.
+
+## Run Locally
 
 ```bash
 ./script/build_and_run.sh
 ```
 
-从工具栏齿轮进入设置，填写自己的 DashScope API Key 与业务空间 ID。首次使用截图功能时，从设置中的“屏幕录制权限”部分请求并允许 Voicedeck 录制屏幕；授权后请完全退出并重新打开应用。API Key 仅保存在本机 macOS 钥匙串中，绝不会被写入此仓库。
+Create a separately named local test application when permission records must be isolated:
 
-Open Settings from the toolbar and enter your own DashScope API Key and workspace ID. For screenshots, request and grant Screen Recording access in Settings, then fully quit and reopen the app. The API Key is stored only in your local macOS Keychain and is never committed to this repository.
+```bash
+./script/build_and_run.sh --test
+./script/build_and_run.sh --test2
+./script/build_and_run.sh --test3
+./script/build_and_run.sh --test4
+```
 
-## 构建验证 / Build Verification
+Each test variant has its own Bundle ID and is written to `dist/`. For reliable reuse of macOS privacy permissions across rebuilt binaries, install an Apple Development certificate in Xcode. The script discovers and uses it automatically; otherwise it falls back to ad-hoc signing.
+
+## Verify
 
 ```bash
 swift build
+
+swiftc Sources/VoiceDeck/Services/VoiceTranscriptFilter.swift \
+  script/test_voice_transcript_filter.swift \
+  -o /tmp/voicedeck-transcript-filter-tests
+/tmp/voicedeck-transcript-filter-tests
+
 swiftc Sources/VoiceDeck/Services/QwenRealtimeConfiguration.swift \
+  Sources/VoiceDeck/Services/QwenRealtimeClient.swift \
   script/test_realtime_configuration.swift \
   -o /tmp/voicedeck-realtime-tests
 /tmp/voicedeck-realtime-tests
+
+swiftc -parse-as-library \
+  Sources/VoiceDeck/Models/Conversation.swift \
+  Sources/VoiceDeck/Services/ConversationProvider.swift \
+  Sources/VoiceDeck/Services/OpenAICompatibleConversationProvider.swift \
+  script/test_conversation_provider.swift \
+  -o /tmp/voicedeck-conversation-provider-tests
+/tmp/voicedeck-conversation-provider-tests
 ```
 
-生成并启动 `dist/Voicedeck.app`：
+## Project Notes
 
-Create and launch a runnable app bundle:
-
-```bash
-./script/build_and_run.sh --verify
-```
-
-## 仓库说明 / Repository Notes
-
-`.gitignore` 会排除构建产物、打包应用、ZIP 文件与本机 macOS 元数据。请不要提交 API Key、业务空间凭据或钥匙串数据。
-
-`.gitignore` excludes build artifacts, packaged apps, ZIP files, and local macOS metadata. Do not commit API keys, workspace credentials, or Keychain data.
+- Product and UI decisions are documented in [`docs/PRODUCT.md`](docs/PRODUCT.md) and [`docs/UI_REDESIGN_V1.md`](docs/UI_REDESIGN_V1.md).
+- `design-demo/` contains local HTML explorations of the redesigned desktop and floating UI.
+- Build output, app bundles, local metadata, API keys, workspace credentials, and Keychain data must not be committed.

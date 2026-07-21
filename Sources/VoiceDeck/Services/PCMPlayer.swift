@@ -6,6 +6,13 @@ final class PCMPlayer {
     private let engine = AVAudioEngine()
     private let player = AVAudioPlayerNode()
     private let format = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 24_000, channels: 1, interleaved: true)!
+    private var scheduledBufferCount = 0
+
+    var onPlaybackStateChange: ((Bool) -> Void)?
+    /// `AVAudioPlayerNode.isPlaying` stays true while its node is active, even
+    /// after its final buffer has drained. The queued buffer count reflects
+    /// audible playback and lets the UI dismiss its stop control promptly.
+    var isPlaying: Bool { scheduledBufferCount > 0 }
 
     init() {
         engine.attach(player)
@@ -23,7 +30,15 @@ final class PCMPlayer {
         }
         do {
             if !engine.isRunning { try engine.start() }
-            player.scheduleBuffer(buffer)
+            scheduledBufferCount += 1
+            onPlaybackStateChange?(true)
+            player.scheduleBuffer(buffer, completionCallbackType: .dataPlayedBack) { [weak self] _ in
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.scheduledBufferCount = max(0, self.scheduledBufferCount - 1)
+                    self.onPlaybackStateChange?(self.isPlaying)
+                }
+            }
             if !player.isPlaying { player.play() }
         } catch {
             return
@@ -32,5 +47,7 @@ final class PCMPlayer {
 
     func stop() {
         player.stop()
+        scheduledBufferCount = 0
+        onPlaybackStateChange?(false)
     }
 }

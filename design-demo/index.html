@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VoiceDeck UI Concept</title>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #161616;
+      --muted: #77777c;
+      --line: #e8e8ea;
+      --soft: #f6f6f7;
+      --panel: rgba(255, 255, 255, .88);
+      --blue: #18a8ff;
+      --purple: #5958d8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      min-width: 1040px; min-height: 720px; margin: 0; overflow: hidden;
+      color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", sans-serif;
+      background: #f3f3f4;
+    }
+    button, textarea { font: inherit; }
+    button { color: inherit; cursor: pointer; }
+    .stage {
+      display: grid; place-items: center; min-height: 100vh; padding: 24px;
+      background: radial-gradient(circle at 48% 12%, #fff 0, #f4f4f5 47%, #e8e8ea 100%);
+    }
+    .app {
+      display: grid; grid-template-columns: 292px minmax(710px, 1fr); width: min(1450px, calc(100vw - 48px)); height: min(900px, calc(100vh - 48px));
+      min-height: 680px; overflow: hidden; border: 1px solid #d5d5d8; border-radius: 22px; background: #fff;
+      box-shadow: 0 20px 45px rgba(20, 20, 24, .13), 0 2px 8px rgba(20, 20, 24, .06);
+    }
+    .sidebar { display: flex; flex-direction: column; border-right: 1px solid var(--line); padding: 22px 18px 18px; background: #fbfbfc; }
+    .traffic { display: flex; gap: 9px; padding: 5px 5px 31px; }
+    .traffic span { display: block; width: 13px; height: 13px; border-radius: 50%; }
+    .traffic span:nth-child(1) { background: #ff5f57; } .traffic span:nth-child(2) { background: #febc2e; } .traffic span:nth-child(3) { background: #28c840; }
+    .brand { display: flex; align-items: center; gap: 12px; padding: 0 10px 27px; font-size: 18px; font-weight: 650; letter-spacing: 0; }
+    .signal { position: relative; isolation: isolate; flex: 0 0 auto; width: var(--size, 36px); height: var(--size, 36px); border-radius: 50%; }
+    .signal::before, .signal::after, .signal .core { content: ""; position: absolute; border-radius: inherit; }
+    .signal::before { inset: -24%; z-index: -1; background: radial-gradient(circle, rgba(41,177,255,.16) 0 22%, rgba(41,177,255,.06) 48%, transparent 72%); filter: blur(5px); }
+    .signal::after { inset: 1px; z-index: 2; padding: 1.5px; background: conic-gradient(from 35deg, rgba(139,225,255,.2), #62d4ff 18%, rgba(87,93,212,.62) 43%, rgba(255,255,255,.86) 62%, #34adff 82%, rgba(139,225,255,.2)); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; filter: none; animation: signal-rim 7s linear infinite; }
+    .signal .core { inset: 8%; z-index: 1; overflow: hidden; background: radial-gradient(circle at 31% 22%, rgba(255,255,255,.95) 0 4%, rgba(191,236,255,.58) 14%, rgba(41,163,244,.48) 43%, rgba(72,78,184,.55) 100%); border: 1px solid rgba(255,255,255,.48); box-shadow: inset 5px 6px 11px rgba(255,255,255,.27), inset -6px -8px 12px rgba(55,55,160,.3), 0 5px 17px rgba(25,151,241,.23); filter: none; }
+    .signal .core::before, .signal .core::after { content: ""; position: absolute; border-radius: 50%; }
+    .signal .core::before { width: 78%; height: 56%; top: 2%; left: -16%; background: rgba(76,205,255,.88); filter: blur(4px); animation: fluid-a 2.15s ease-in-out infinite alternate; }
+    .signal .core::after { width: 70%; height: 68%; right: -18%; bottom: -12%; background: rgba(90,72,224,.75); filter: blur(5px); animation: fluid-b 2.65s ease-in-out infinite alternate; }
+    .signal .ripple { position: absolute; inset: -2px; z-index: 0; border: 1px solid rgba(37,169,255,.42); border-radius: 50%; opacity: 0; pointer-events: none; animation: signal-ripple 1.8s cubic-bezier(.18,.62,.3,1) infinite; }
+    .signal .ripple.two { animation-delay: .6s; }
+    .signal .ripple.three { animation-delay: 1.2s; }
+    .signal.idle { opacity: .9; } .signal.idle::before { opacity: .5; }
+    .signal.ready { animation: breathe 5.8s ease-in-out infinite; }
+    .signal.listening { animation: voice 820ms ease-in-out infinite alternate; }
+    .signal.listening::before { animation: signal-aura 1.3s ease-in-out infinite alternate; }
+    .signal.thinking { animation: breathe 2.3s ease-in-out infinite; }
+    @keyframes breathe { 50% { transform: scale(1.075); filter: saturate(1.08); } }
+    @keyframes voice { from { transform: scale(.95); } to { transform: scale(1.055); } }
+    @keyframes signal-aura { from { transform: scale(.88); opacity: .42; } to { transform: scale(1.12); opacity: .92; } }
+    @keyframes signal-rim { to { transform: rotate(360deg); } }
+    @keyframes fluid-a { from { transform: translate(-8%, 8%) rotate(-16deg) scale(.92); } to { transform: translate(18%, -9%) rotate(9deg) scale(1.08); } }
+    @keyframes fluid-b { from { transform: translate(8%, 8%) scale(.94); } to { transform: translate(-18%, -16%) scale(1.1); } }
+    @keyframes signal-ripple { 0% { transform: scale(.82); opacity: 0; } 18% { opacity: .52; } 100% { transform: scale(1.48); opacity: 0; } }
+    .new-chat, .search, .suggestion { display: flex; align-items: center; gap: 11px; width: 100%; border: 0; background: transparent; text-align: left; }
+    .new-chat { justify-content: flex-start; padding: 13px 14px; border: 1px solid #dedee1; border-radius: 10px; background: white; font-weight: 580; box-shadow: 0 1px 1px rgba(0,0,0,.02); }
+    .new-chat:hover { border-color: #bfc0c5; }
+    .search { margin-top: 12px; padding: 10px 12px; border: 1px solid #ececef; border-radius: 9px; color: var(--muted); background: #f7f7f8; font-size: 13px; }
+    .search kbd { margin-left: auto; font: 11px -apple-system; color: #96969b; }
+    .side-label { margin: 35px 10px 10px; color: #98989e; font-size: 12px; font-weight: 600; }
+    .conversation-list { display: grid; gap: 3px; }
+    .conversation { position: relative; display: flex; align-items: center; min-height: 39px; padding: 0 11px; border: 0; border-radius: 8px; background: transparent; font-size: 14px; text-align: left; }
+    .conversation:hover { background: #f1f1f3; } .conversation.active { background: #eeeeef; font-weight: 620; }
+    .conversation i { margin-left: auto; color: #68686e; }
+    .side-footer { display: flex; gap: 8px; margin-top: auto; padding: 7px 2px 0; }
+    .icon-button { display: grid; place-items: center; width: 34px; height: 34px; border: 0; border-radius: 8px; background: transparent; }
+    .icon-button:hover { background: #efeff1; }
+    .main { display: grid; grid-template-rows: 74px minmax(0,1fr); min-width: 0; background: #fff; }
+    .toolbar { display: flex; align-items: center; gap: 15px; border-bottom: 1px solid var(--line); padding: 0 28px 0 31px; }
+    .title-control, .model-control { display: inline-flex; align-items: center; gap: 8px; border: 0; background: transparent; }
+    .title-control { font-size: 17px; font-weight: 650; } .model-control { padding: 9px 12px; border: 1px solid #e5e5e7; border-radius: 18px; font-size: 13px; font-weight: 600; }
+    .toolbar-spacer { flex: 1; } .context { display: inline-flex; align-items: center; gap: 8px; color: #414146; font-size: 13px; font-weight: 560; }
+    .detail { position: relative; min-height: 0; overflow: auto; }
+    .empty-state { display: grid; align-content: center; justify-items: center; min-height: 100%; padding: 45px 40px 178px; }
+    .empty-state .signal { --size: 102px; margin-bottom: 33px; }
+    h1 { margin: 0; font-size: 27px; letter-spacing: 0; font-weight: 660; } .empty-state p { margin: 12px 0 44px; color: #88888e; font-size: 15px; }
+    .suggestions { width: min(600px, 75%); border-top: 1px solid var(--line); }
+    .suggestion { justify-content: flex-start; padding: 18px 7px; border-bottom: 1px solid var(--line); font-size: 15px; }
+    .suggestion i:first-child { color: #65656a; } .suggestion i:last-child { margin-left: auto; color: #a6a6aa; } .suggestion:hover { color: #111; background: #fcfcfc; }
+    .chat { display: none; width: min(880px, calc(100% - 100px)); margin: 0 auto; padding: 31px 0 178px; }
+    .turn { margin: 0 0 42px; } .message-meta { margin-bottom: 10px; color: #7e7e84; font-size: 12px; text-align: right; } .user-line { display: flex; justify-content: flex-end; }
+    .user-copy { max-width: 58%; padding: 11px 14px; border-radius: 16px 16px 4px 16px; background: #f2f2f3; font-size: 15px; line-height: 1.45; }
+    .attachment { width: min(400px, 58%); margin: 12px 0 0 auto; overflow: hidden; border: 1px solid #dedee2; border-radius: 13px; background: white; box-shadow: 0 2px 5px rgba(0,0,0,.035); }
+    .attachment-preview { position: relative; display: grid; place-items: center; height: 170px; overflow: hidden; background: #f2f5f8; }
+    .browser-mock { width: 83%; height: 72%; overflow: hidden; border: 1px solid #c8cdd2; border-radius: 7px; background: white; box-shadow: 0 7px 16px rgba(26,47,61,.15); }
+    .browser-bar { height: 25px; border-bottom: 1px solid #e3e4e7; background: #f7f7f8; } .browser-dots { display: flex; gap: 4px; padding: 8px; } .browser-dots b { width: 6px; height: 6px; border-radius: 50%; background: #fb756e; } .browser-dots b:nth-child(2) { background: #f5c451; } .browser-dots b:nth-child(3) { background: #62c564; }
+    .browser-page { padding: 15px; } .browser-page strong { display: block; margin-bottom: 11px; color: #237fe8; font-size: 16px; } .browser-page span { display: block; height: 7px; margin: 7px 0; border-radius: 5px; background: #e8ebee; } .browser-page span:nth-child(3) { width: 78%; } .browser-page span:nth-child(4) { width: 91%; }
+    .attachment-info { display: flex; justify-content: space-between; padding: 10px 12px; color: #77777d; font-size: 12px; }
+    .assistant { display: grid; grid-template-columns: 34px 1fr; gap: 14px; padding-top: 28px; border-top: 1px solid var(--line); }
+    .assistant .signal { --size: 28px; margin-top: 1px; } .assistant-copy { font-size: 15px; line-height: 1.82; } .assistant-copy strong { font-weight: 660; }
+    .answer-actions { display: flex; gap: 3px; margin-top: 14px; }.answer-actions .icon-button { width: 31px; height: 31px; }
+    .composer { position: absolute; z-index: 2; right: 0; bottom: 0; left: 0; padding: 16px 48px 18px; background: linear-gradient(to top, #fff 74%, rgba(255,255,255,0)); }
+    .composer-card { display: grid; grid-template-columns: 1fr auto; gap: 12px; width: min(880px, 100%); min-height: 98px; margin: 0 auto; padding: 13px 13px 11px 17px; border: 1px solid #dedee2; border-radius: 15px; background: rgba(255,255,255,.96); box-shadow: 0 4px 15px rgba(28,28,32,.035); }
+    textarea { width: 100%; height: 34px; resize: none; outline: 0; border: 0; background: transparent; color: #222; font-size: 15px; line-height: 1.55; } textarea::placeholder { color: #9b9ba1; }
+    .composer-tools { display: flex; align-items: flex-end; gap: 5px; } .send { align-self: end; width: 42px; height: 42px; border: 0; border-radius: 50%; color: white; background: #171719; } .send:hover { background: #333337; }
+    .voice-card { position: fixed; z-index: 10; bottom: 70px; left: 50%; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 18px; width: 410px; min-height: 96px; padding: 17px 24px; border: 1px solid rgba(206,206,211,.9); border-radius: 21px; background: rgba(255,255,255,.93); box-shadow: 0 18px 44px rgba(30,30,35,.18), 0 2px 8px rgba(30,30,35,.08); backdrop-filter: blur(18px); opacity: 0; pointer-events: none; transform: translate(-50%, 15px) scale(.98); transition: opacity 180ms ease, transform 180ms ease, width 220ms cubic-bezier(.2,.8,.2,1); }
+    .voice-card.visible { opacity: 1; pointer-events: auto; transform: translate(-50%, 0) scale(1); }
+    .voice-card .signal { --size: 62px; align-self: center; } .voice-copy { position: relative; display: flex; align-items: center; min-width: 0; height: 52px; overflow: hidden; } .transcript { position: relative; z-index: 2; width: 100%; min-width: 0; height: 31px; overflow: hidden; white-space: nowrap; color: #17171a; font-size: 20px; font-weight: 530; line-height: 1.55; letter-spacing: 0; text-shadow: 0 1px 5px rgba(255,255,255,.95); }
+    .transcript span { position: absolute; top: 0; left: 0; display: inline-block; opacity: 1; transform: translateX(0); transition: opacity .28s cubic-bezier(.2,.7,.2,1), transform .28s cubic-bezier(.2,.7,.2,1); }
+    .transcript span.entering { opacity: 0; transform: translateX(12px); }
+    .transcript span.leaving { opacity: 0; transform: translateX(-12px); }
+    .model-menu { position: absolute; z-index: 5; top: 62px; right: 177px; display: none; width: 222px; padding: 6px; border: 1px solid #dedee2; border-radius: 12px; background: rgba(255,255,255,.97); box-shadow: 0 14px 30px rgba(0,0,0,.12); } .model-menu.open { display: block; }
+    .model-menu button { display: flex; align-items: center; width: 100%; padding: 10px; border: 0; border-radius: 8px; background: transparent; text-align: left; font-size: 13px; } .model-menu button:hover { background: #f3f3f4; } .model-menu span { margin-left: auto; color: #7d7d83; font-size: 11px; }
+    .hidden { display: none !important; }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <main class="stage">
+    <section class="app" aria-label="VoiceDeck UI Concept">
+      <aside class="sidebar">
+        <div class="traffic" aria-hidden="true"><span></span><span></span><span></span></div>
+        <div class="brand"><span class="signal idle"><i class="core"></i></span><span>VoiceDeck</span></div>
+        <button class="new-chat" id="newChat"><i data-lucide="square-pen"></i>新对话</button>
+        <button class="search"><i data-lucide="search"></i>搜索对话 <kbd>⌘K</kbd></button>
+        <div class="side-label">最近</div>
+        <nav class="conversation-list" aria-label="最近对话">
+          <button class="conversation active">整理项目想法<i data-lucide="pin"></i></button>
+          <button class="conversation">为周末上海行程做规划</button>
+          <button class="conversation">附件已保存到本机<i data-lucide="archive"></i></button>
+        </nav>
+        <div class="side-footer"><button class="icon-button" title="设置"><i data-lucide="settings"></i></button><button class="icon-button" title="新对话" id="newChatBottom"><i data-lucide="square-pen"></i></button></div>
+      </aside>
+      <section class="main">
+        <header class="toolbar">
+          <button class="title-control">新对话<i data-lucide="chevron-down"></i></button>
+          <span class="toolbar-spacer"></span>
+          <button class="model-control" id="modelButton">Qwen VL Max<i data-lucide="chevron-down"></i></button>
+          <button class="icon-button" title="设置"><i data-lucide="settings"></i></button>
+        </header>
+        <div class="model-menu" id="modelMenu">
+          <button data-model="Qwen VL Max">Qwen VL Max<span>默认</span></button>
+          <button data-model="GPT-5 mini">GPT-5 mini<span>OpenAI</span></button>
+          <button data-model="Kimi K2.5">Kimi K2.5<span>Moonshot</span></button>
+          <button data-model="GLM-4.6V Flash">GLM-4.6V Flash<span>智谱</span></button>
+        </div>
+        <div class="detail">
+          <section class="empty-state" id="emptyState">
+            <span class="signal ready"><i class="core"></i></span>
+            <h1>随时开口，继续眼前的工作</h1>
+            <p>说出问题，或带上当前窗口继续提问</p>
+            <div class="suggestions">
+              <button class="suggestion" data-prompt="请总结当前页面的重点。" data-context="true"><i data-lucide="file-text"></i>总结当前页面<i data-lucide="chevron-right"></i></button>
+              <button class="suggestion" data-prompt="帮我整理一个想法。"><i data-lucide="lightbulb"></i>帮我整理一个想法<i data-lucide="chevron-right"></i></button>
+              <button class="suggestion" data-prompt="请解释屏幕上的内容。" data-context="true"><i data-lucide="scan-text"></i>解释屏幕上的内容<i data-lucide="chevron-right"></i></button>
+            </div>
+          </section>
+          <section class="chat" id="chatView">
+            <article class="turn">
+              <div class="message-meta">你 · 语音转写</div>
+              <div class="user-line"><div class="user-copy" id="userMessage">屏幕上说了什么？</div></div>
+              <div class="attachment" id="attachmentCard">
+                <div class="attachment-preview"><div class="browser-mock"><div class="browser-bar"><div class="browser-dots"><b></b><b></b><b></b></div></div><div class="browser-page"><strong>正在查看的网页</strong><span></span><span></span><span></span></div></div></div>
+                <div class="attachment-info"><span>Safari · 14:32</span><span>截图已附带</span></div>
+              </div>
+            </article>
+            <article class="assistant"><span class="signal idle"><i class="core"></i></span><div class="assistant-copy"><strong>我已经看到了当前页面。</strong><br>附件会作为这轮对话的上下文发送。你可以继续用语音追问、要求总结，或让我提取其中的重点。<div class="answer-actions"><button class="icon-button" title="复制"><i data-lucide="copy"></i></button><button class="icon-button" title="重新生成"><i data-lucide="rotate-cw"></i></button><button class="icon-button" title="有帮助"><i data-lucide="thumbs-up"></i></button></div></div></article>
+          </section>
+          <div class="composer">
+            <div class="composer-card"><div><textarea id="composerInput" placeholder="输入消息，或使用语音"></textarea><div class="composer-tools"><button class="icon-button" title="添加附件"><i data-lucide="paperclip"></i></button><button class="icon-button" id="contextButton" title="截图并语音提问"><i data-lucide="scan"></i></button></div></div><button class="send" id="sendButton" title="发送"><i data-lucide="arrow-up"></i></button></div>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+  <aside class="voice-card" id="voiceCard" aria-live="polite">
+    <span class="signal listening"><b class="ripple one"></b><b class="ripple two"></b><b class="ripple three"></b><i class="core"></i></span>
+    <div class="voice-copy"><div class="transcript" id="liveTranscript"><span>帮我整理一下这段内容</span></div></div>
+  </aside>
+  <script>
+    lucide.createIcons({ attrs: { width: 18, height: 18, "stroke-width": 1.8 } });
+    const emptyState = document.querySelector('#emptyState');
+    const chatView = document.querySelector('#chatView');
+    const composerInput = document.querySelector('#composerInput');
+    const attachmentCard = document.querySelector('#attachmentCard');
+    const userMessage = document.querySelector('#userMessage');
+    const voiceCard = document.querySelector('#voiceCard');
+    const liveTranscript = document.querySelector('#liveTranscript');
+    const modelButton = document.querySelector('#modelButton');
+    const modelMenu = document.querySelector('#modelMenu');
+    let transcriptIndex = 0;
+    let transcriptTimer;
+    const demoTranscript = '帮我整理一下这段内容，重点说明其中的结论和下一步。';
+    const demoWords = Array.from(new Intl.Segmenter('zh-CN', { granularity: 'word' }).segment(demoTranscript), item => item.segment);
+
+    function showChat(withAttachment = false) {
+      emptyState.classList.add('hidden'); chatView.style.display = 'block';
+      attachmentCard.classList.toggle('hidden', !withAttachment);
+    }
+    function rollingText(text) {
+      const segmenter = new Intl.Segmenter('zh-CN', { granularity: 'word' });
+      const words = Array.from(segmenter.segment(text), item => item.segment);
+      const visible = [];
+      let length = 0;
+      for (const word of words.reverse()) {
+        const wordLength = Array.from(word).length;
+        if (visible.length && length + wordLength > 20) break;
+        visible.unshift(word);
+        length += wordLength;
+      }
+      return visible.join('') || Array.from(text).slice(-20).join('');
+    }
+    function transitionTranscript(container, text) {
+      const previous = container.querySelector('span:not(.leaving)');
+      if (previous?.textContent === text) return;
+      const next = document.createElement('span');
+      next.className = 'entering';
+      next.textContent = text || ' ';
+      container.appendChild(next);
+      requestAnimationFrame(() => {
+        previous?.classList.add('leaving');
+        next.classList.remove('entering');
+      });
+      window.setTimeout(() => previous?.remove(), 300);
+    }
+    function startVoice(context = false) {
+      clearInterval(transcriptTimer); transcriptIndex = 0;
+      voiceCard.classList.add('visible');
+      transcriptTimer = setInterval(() => {
+        transcriptIndex = Math.min(demoWords.length, transcriptIndex + 1);
+        const current = rollingText(demoWords.slice(0, transcriptIndex).join(''));
+        transitionTranscript(liveTranscript, current);
+        const desiredWidth = Math.min(650, Math.max(360, 155 + Array.from(current).length * 18));
+        voiceCard.style.width = `${desiredWidth}px`;
+        if (transcriptIndex >= demoWords.length) clearInterval(transcriptTimer);
+      }, 260);
+    }
+    function stopVoice() {
+      clearInterval(transcriptTimer); voiceCard.classList.remove('visible');
+      window.setTimeout(() => { voiceCard.style.width = ''; }, 200);
+    }
+    function resetConversation() {
+      chatView.style.display = 'none'; emptyState.classList.remove('hidden'); composerInput.value = ''; attachmentCard.classList.remove('hidden');
+    }
+    document.querySelectorAll('.suggestion').forEach(button => button.addEventListener('click', () => {
+      const withContext = button.dataset.context === 'true';
+      composerInput.value = button.dataset.prompt;
+      showChat(withContext);
+      userMessage.textContent = button.dataset.prompt;
+      composerInput.focus();
+    }));
+    document.querySelectorAll('#newChat, #newChatBottom').forEach(button => button.addEventListener('click', resetConversation));
+    document.querySelector('#sendButton').addEventListener('click', () => {
+      if (!composerInput.value.trim()) return; showChat(false); userMessage.textContent = composerInput.value.trim(); composerInput.value = '';
+    });
+    document.querySelector('#contextButton').addEventListener('mousedown', () => startVoice(true));
+    document.querySelector('#contextButton').addEventListener('mouseup', stopVoice);
+    document.querySelector('#contextButton').addEventListener('mouseleave', stopVoice);
+    document.addEventListener('keydown', event => {
+      if (event.altKey && event.key.toLowerCase() === 'z' && !event.repeat) { event.preventDefault(); startVoice(false); }
+      if (event.altKey && event.key.toLowerCase() === 'x' && !event.repeat) { event.preventDefault(); startVoice(true); }
+    });
+    document.addEventListener('keyup', event => { if (event.key.toLowerCase() === 'z' || event.key.toLowerCase() === 'x') stopVoice(); });
+    modelButton.addEventListener('click', () => modelMenu.classList.toggle('open'));
+    modelMenu.querySelectorAll('button').forEach(button => button.addEventListener('click', () => { modelButton.firstChild.textContent = button.dataset.model; modelMenu.classList.remove('open'); }));
+    document.addEventListener('click', event => { if (!event.target.closest('#modelButton, #modelMenu')) modelMenu.classList.remove('open'); });
+  </script>
+</body>
+</html>

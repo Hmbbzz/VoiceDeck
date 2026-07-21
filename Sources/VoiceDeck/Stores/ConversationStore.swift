@@ -32,10 +32,40 @@ final class ConversationStore {
 
         conversations[index].messages.append(message)
         conversations[index].updatedAt = message.createdAt
-        if conversations[index].title == "新对话", message.role == .user {
-            conversations[index].title = String(message.content.prefix(18))
-        }
         sortConversations()
+        persist()
+    }
+
+    func addAttachment(_ attachment: ChatAttachment, to messageID: ChatMessage.ID, in conversationID: Conversation.ID) {
+        guard let conversationIndex = conversations.firstIndex(where: { $0.id == conversationID }),
+              let messageIndex = conversations[conversationIndex].messages.firstIndex(where: { $0.id == messageID }) else { return }
+
+        let message = conversations[conversationIndex].messages[messageIndex]
+        guard !message.attachments.contains(where: { $0.id == attachment.id }) else { return }
+        conversations[conversationIndex].messages[messageIndex] = ChatMessage(
+            id: message.id,
+            role: message.role,
+            content: message.content,
+            createdAt: message.createdAt,
+            attachments: message.attachments + [attachment]
+        )
+        conversations[conversationIndex].updatedAt = .now
+        sortConversations()
+        persist()
+    }
+
+    func replaceContent(of messageID: ChatMessage.ID, in conversationID: Conversation.ID, with content: String) {
+        guard let conversationIndex = conversations.firstIndex(where: { $0.id == conversationID }),
+              let messageIndex = conversations[conversationIndex].messages.firstIndex(where: { $0.id == messageID }) else { return }
+        let message = conversations[conversationIndex].messages[messageIndex]
+        conversations[conversationIndex].messages[messageIndex] = ChatMessage(
+            id: message.id,
+            role: message.role,
+            content: content,
+            createdAt: message.createdAt,
+            attachments: message.attachments
+        )
+        conversations[conversationIndex].updatedAt = .now
         persist()
     }
 
@@ -45,6 +75,13 @@ final class ConversationStore {
               let index = conversations.firstIndex(where: { $0.id == conversationID }) else { return }
         conversations[index].title = String(normalizedTitle.prefix(80))
         persist()
+    }
+
+    /// Claims an untouched conversation title once its first exchange has completed.
+    func renameIfUntitled(_ conversationID: Conversation.ID, to title: String) {
+        guard let index = conversations.firstIndex(where: { $0.id == conversationID }),
+              conversations[index].title == "新对话" else { return }
+        rename(conversationID, to: title)
     }
 
     func togglePin(_ conversationID: Conversation.ID) {

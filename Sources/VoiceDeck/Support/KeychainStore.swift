@@ -7,14 +7,18 @@ enum KeychainKey: String {
 
 enum KeychainStore {
     private static let service = "com.bobhe.voicedeck.capture"
-    private static var cachedValues: [KeychainKey: String] = [:]
+    private static var cachedValues: [String: String] = [:]
 
     static func value(for key: KeychainKey) -> String? {
-        if let cachedValue = cachedValues[key] { return cachedValue }
+        value(forReference: key.rawValue)
+    }
+
+    static func value(forReference reference: String) -> String? {
+        if let cachedValue = cachedValues[reference] { return cachedValue }
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
-            kSecAttrAccount as String: key.rawValue,
+            kSecAttrAccount as String: reference,
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne
         ]
@@ -22,15 +26,19 @@ enum KeychainStore {
         guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess,
               let data = item as? Data else { return nil }
         let value = String(data: data, encoding: .utf8)
-        if let value { cachedValues[key] = value }
+        if let value { cachedValues[reference] = value }
         return value
     }
 
     static func save(_ value: String, for key: KeychainKey) throws {
+        try save(value, forReference: key.rawValue)
+    }
+
+    static func save(_ value: String, forReference reference: String) throws {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
-            kSecAttrAccount as String: key.rawValue
+            kSecAttrAccount as String: reference
         ]
         let attributes: [String: Any] = [
             kSecValueData as String: Data(value.utf8)
@@ -44,7 +52,7 @@ enum KeychainStore {
             status = updateStatus
         }
         guard status == errSecSuccess else { throw KeychainError.unableToSave(status) }
-        cachedValues[key] = value
+        cachedValues[reference] = value
     }
 }
 

@@ -2,6 +2,7 @@ import Foundation
 
 enum QwenRealtimeEvent {
     case ready
+    case userTranscriptPreview(String)
     case userTranscript(String)
     case assistantTranscript(String)
     case audio(Data)
@@ -52,9 +53,14 @@ final class QwenRealtimeClient {
         ])
     }
 
-    func commitAudio() {
-        shouldCreateResponse = true
+    func commitAudio(createResponse: Bool = true) {
+        shouldCreateResponse = createResponse
         send(["type": "input_audio_buffer.commit"])
+    }
+
+    func clearAudio() {
+        shouldCreateResponse = false
+        send(["type": "input_audio_buffer.clear"])
     }
 
     func cancelResponse() {
@@ -115,6 +121,13 @@ final class QwenRealtimeClient {
             if shouldCreateResponse {
                 shouldCreateResponse = false
                 send(["type": "response.create"])
+            }
+        case "conversation.item.input_audio_transcription.delta", "conversation.item.input_audio_transcription.text":
+            let confirmedText = event["text"] as? String ?? ""
+            let tentativeText = event["stash"] as? String ?? ""
+            let preview = confirmedText + tentativeText
+            if !preview.isEmpty {
+                emit(.userTranscriptPreview(preview))
             }
         case "conversation.item.input_audio_transcription.completed":
             if let transcript = event["transcript"] as? String {

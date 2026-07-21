@@ -7,6 +7,32 @@ BUILD_PRODUCT="VoiceDeck"
 BUNDLE_ID="com.bobhe.voicedeck.capture"
 MIN_SYSTEM_VERSION="14.0"
 
+# Keep this identifier stable across local test builds. macOS grants privacy
+# permissions to an application's signed identity, not merely its visible name.
+if [[ "$MODE" == "--test" || "$MODE" == "test" ]]; then
+  MODE="run"
+  APP_NAME="VoiceDeck12345"
+  BUNDLE_ID="com.bobhe.voicedeck.test12345"
+fi
+
+if [[ "$MODE" == "--test2" || "$MODE" == "test2" ]]; then
+  MODE="run"
+  APP_NAME="VoiceDeck2"
+  BUNDLE_ID="com.bobhe.voicedeck.test2"
+fi
+
+if [[ "$MODE" == "--test3" || "$MODE" == "test3" ]]; then
+  MODE="run"
+  APP_NAME="VoiceDeck3"
+  BUNDLE_ID="com.bobhe.voicedeck.test3"
+fi
+
+if [[ "$MODE" == "--test4" || "$MODE" == "test4" ]]; then
+  MODE="run"
+  APP_NAME="VoiceDeck4"
+  BUNDLE_ID="com.bobhe.voicedeck.test4"
+fi
+
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST_DIR="$ROOT_DIR/dist"
 APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
@@ -67,6 +93,20 @@ cat >"$INFO_PLIST" <<PLIST
 </plist>
 PLIST
 
+# Bind the generated Info.plist to the app signature. A configured Apple
+# Development identity is preferred; local builds fall back to an explicitly
+# identified ad-hoc signature so the test bundle remains distinguishable.
+SIGNING_IDENTITY="${VOICEDECK_SIGNING_IDENTITY:-}"
+if [[ -z "$SIGNING_IDENTITY" ]]; then
+  SIGNING_IDENTITY="$(security find-identity -v -p codesigning 2>/dev/null | sed -n 's/.*\"\(Apple Development:.*\)\"/\1/p' | head -n 1)"
+fi
+
+if [[ -n "$SIGNING_IDENTITY" ]]; then
+  codesign --force --deep --sign "$SIGNING_IDENTITY" --identifier "$BUNDLE_ID" "$APP_BUNDLE"
+else
+  codesign --force --deep --sign - --identifier "$BUNDLE_ID" "$APP_BUNDLE"
+fi
+
 open_app() {
   /usr/bin/open -n "$APP_BUNDLE"
 }
@@ -92,7 +132,7 @@ case "$MODE" in
     pgrep -x "$APP_NAME" >/dev/null
     ;;
   *)
-    echo "usage: $0 [run|--debug|--logs|--telemetry|--verify]" >&2
+    echo "usage: $0 [run|--test|--test2|--test3|--test4|--debug|--logs|--telemetry|--verify]" >&2
     exit 2
     ;;
 esac

@@ -7,8 +7,10 @@ struct ContentView: View {
 
     var body: some View {
         NavigationSplitView {
-            SidebarView(store: store)
-                .navigationSplitViewColumnWidth(min: 210, ideal: 245, max: 310)
+            SidebarView(store: store) {
+                isShowingSettings = true
+            }
+            .navigationSplitViewColumnWidth(min: 230, ideal: 270, max: 320)
         } detail: {
             ZStack {
                 if isShowingSettings {
@@ -34,25 +36,6 @@ struct ContentView: View {
         }
         .onChange(of: store.selectedConversationID) { _, _ in
             isShowingSettings = false
-        }
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    store.createConversation()
-                } label: {
-                    Label("新建对话", systemImage: "square.and.pencil")
-                }
-                .help("新建对话")
-            }
-
-            ToolbarItem(placement: .automatic) {
-                Button {
-                    isShowingSettings = true
-                } label: {
-                    Image(systemName: "gearshape")
-                }
-                .help("设置")
-            }
         }
     }
 }

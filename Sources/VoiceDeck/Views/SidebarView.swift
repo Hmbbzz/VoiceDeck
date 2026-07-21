@@ -2,53 +2,44 @@ import SwiftUI
 
 struct SidebarView: View {
     @Bindable var store: ConversationStore
-    @State private var conversationToRename: Conversation?
+    let onShowSettings: () -> Void
 
-    private var today: [Conversation] {
-        store.conversations.filter { !$0.isArchived && !$0.isPinned && Calendar.current.isDateInToday($0.updatedAt) }
+    @State private var conversationToRename: Conversation?
+    @State private var searchText = ""
+
+    private var visibleConversations: [Conversation] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return store.conversations }
+        return store.conversations.filter {
+            $0.title.localizedCaseInsensitiveContains(query)
+                || $0.preview.localizedCaseInsensitiveContains(query)
+        }
+    }
+
+    private var recent: [Conversation] {
+        visibleConversations.filter { !$0.isArchived && !$0.isPinned && Calendar.current.isDateInToday($0.updatedAt) }
     }
 
     private var earlier: [Conversation] {
-        store.conversations.filter { !$0.isArchived && !$0.isPinned && !Calendar.current.isDateInToday($0.updatedAt) }
+        visibleConversations.filter { !$0.isArchived && !$0.isPinned && !Calendar.current.isDateInToday($0.updatedAt) }
     }
 
     private var pinned: [Conversation] {
-        store.conversations.filter { !$0.isArchived && $0.isPinned }
+        visibleConversations.filter { !$0.isArchived && $0.isPinned }
     }
 
     private var archived: [Conversation] {
-        store.conversations.filter(\.isArchived)
+        visibleConversations.filter(\.isArchived)
     }
 
     var body: some View {
-        List(selection: $store.selectedConversationID) {
-            if !pinned.isEmpty {
-                Section("已置顶") {
-                    conversationRows(pinned)
-                }
-            }
-
-            if !today.isEmpty {
-                Section("今天") {
-                    conversationRows(today)
-                }
-            }
-
-            if !earlier.isEmpty {
-                Section("较早") {
-                    conversationRows(earlier)
-                }
-            }
-
-            if !archived.isEmpty {
-                Section("已归档") {
-                    conversationRows(archived)
-                }
-            }
-
+        VStack(spacing: 0) {
+            brand
+            newConversationButton
+            searchField
+            conversationList
+            footer
         }
-        .listStyle(.sidebar)
-        .navigationTitle("Voice Deck")
         .sheet(item: $conversationToRename) { conversation in
             RenameConversationSheet(conversation: conversation) { title in
                 store.rename(conversation.id, to: title)
@@ -56,46 +47,149 @@ struct SidebarView: View {
         }
     }
 
-    @ViewBuilder
-    private func conversationRows(_ conversations: [Conversation]) -> some View {
-        ForEach(conversations) { conversation in
-            ConversationRow(conversation: conversation, store: store) {
-                conversationToRename = conversation
-            }
-            .tag(conversation.id)
+    private var brand: some View {
+        HStack(spacing: 12) {
+            SignalOrbView(size: 32, isSoft: true)
+            Text("VoiceDeck")
+                .font(.system(size: 17, weight: .semibold))
+            Spacer()
         }
+        .padding(.horizontal, 20)
+        .padding(.top, 24)
+        .padding(.bottom, 24)
+    }
+
+    private var newConversationButton: some View {
+        Button {
+            store.createConversation()
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "square.and.pencil")
+                    .font(.system(size: 15, weight: .medium))
+                    .frame(width: 20)
+                Text("新对话")
+                Spacer()
+            }
+            .padding(.horizontal, 14)
+            .frame(maxWidth: .infinity, minHeight: 48)
+            .contentShape(Rectangle())
+            .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .strokeBorder(Color(nsColor: .separatorColor).opacity(0.75), lineWidth: 0.7)
+            )
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 14)
+    }
+
+    private var searchField: some View {
+        HStack(spacing: 9) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+            TextField("搜索对话", text: $searchText)
+                .textFieldStyle(.plain)
+        }
+        .padding(.horizontal, 13)
+        .frame(height: 42)
+        .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .padding(.horizontal, 14)
+        .padding(.top, 12)
+    }
+
+    private var conversationList: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 22) {
+                conversationSection("已置顶", conversations: pinned)
+                conversationSection("最近", conversations: recent)
+                conversationSection("较早", conversations: earlier)
+                conversationSection("已归档", conversations: archived)
+            }
+            .padding(.horizontal, 12)
+            .padding(.top, 30)
+            .padding(.bottom, 18)
+        }
+    }
+
+    @ViewBuilder
+    private func conversationSection(_ title: String, conversations: [Conversation]) -> some View {
+        if !conversations.isEmpty {
+            VStack(alignment: .leading, spacing: 7) {
+                Text(title)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 8)
+
+                VStack(spacing: 3) {
+                    ForEach(conversations) { conversation in
+                        ConversationRow(
+                            conversation: conversation,
+                            isSelected: store.selectedConversationID == conversation.id,
+                            store: store,
+                            onSelect: { store.selectedConversationID = conversation.id },
+                            onRename: { conversationToRename = conversation }
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private var footer: some View {
+        HStack(spacing: 8) {
+            Button(action: onShowSettings) {
+                Image(systemName: "gearshape")
+                    .frame(width: 34, height: 34)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("设置")
+
+            Button {
+                store.createConversation()
+            } label: {
+                Image(systemName: "square.and.pencil")
+                    .frame(width: 34, height: 34)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("新对话")
+
+            Spacer()
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
     }
 }
 
 private struct ConversationRow: View {
     let conversation: Conversation
+    let isSelected: Bool
     @Bindable var store: ConversationStore
+    let onSelect: () -> Void
     let onRename: () -> Void
 
     var body: some View {
-        HStack(spacing: 8) {
-            VStack(alignment: .leading, spacing: 3) {
+        Button(action: onSelect) {
+            HStack(spacing: 8) {
                 Text(conversation.title)
                     .lineLimit(1)
-                Text(conversation.preview)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                Spacer(minLength: 4)
+                if conversation.isPinned {
+                    Image(systemName: "pin.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
             }
-            Spacer(minLength: 4)
-            if conversation.isPinned {
-                Image(systemName: "pin.fill")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
+            .padding(.horizontal, 9)
+            .frame(maxWidth: .infinity, minHeight: 36)
+            .contentShape(Rectangle())
+            .background(
+                isSelected ? Color.primary.opacity(0.075) : Color.clear,
+                in: RoundedRectangle(cornerRadius: 7, style: .continuous)
+            )
         }
-        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-            Button(role: .destructive) {
-                store.delete(conversation.id)
-            } label: {
-                Label("删除", systemImage: "trash")
-            }
-        }
+        .buttonStyle(.plain)
         .contextMenu {
             Button(action: onRename) {
                 Label("重命名", systemImage: "pencil")
@@ -146,17 +240,13 @@ private struct RenameConversationSheet: View {
         VStack(alignment: .leading, spacing: 20) {
             Text("重命名对话")
                 .font(.headline)
-
             TextField("对话名称", text: $title)
                 .textFieldStyle(.roundedBorder)
                 .focused($isFocused)
                 .onSubmit(save)
-
             HStack {
                 Spacer()
-                Button("取消", role: .cancel) {
-                    dismiss()
-                }
+                Button("取消", role: .cancel) { dismiss() }
                 Button("完成", action: save)
                     .keyboardShortcut(.defaultAction)
                     .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)

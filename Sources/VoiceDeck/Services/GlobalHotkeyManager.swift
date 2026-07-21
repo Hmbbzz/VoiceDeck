@@ -11,8 +11,10 @@ final class GlobalHotkeyManager {
     private var hotkeyRefs: [EventHotKeyRef] = []
     private var onPress: (() -> Void)?
     private var onRelease: (() -> Void)?
-    private var onCaptureWindowContext: (() -> Void)?
+    private var onCapturePress: (() -> Void)?
+    private var onCaptureRelease: (() -> Void)?
     private var isPushToTalkPressed = false
+    private var isCapturePressed = false
 
     private static let eventCallback: EventHandlerUPP = { _, event, userData in
         guard let event, let userData else { return noErr }
@@ -51,7 +53,13 @@ final class GlobalHotkeyManager {
             manager.isPushToTalkPressed = false
             manager.onRelease?()
         } else if identifier.id == HotkeyID.captureWindowContext.rawValue, eventKind == UInt32(kEventHotKeyPressed) {
-            manager.onCaptureWindowContext?()
+            guard !manager.isCapturePressed else { return noErr }
+            manager.isCapturePressed = true
+            manager.onCapturePress?()
+        } else if identifier.id == HotkeyID.captureWindowContext.rawValue, eventKind == UInt32(kEventHotKeyReleased) {
+            guard manager.isCapturePressed else { return noErr }
+            manager.isCapturePressed = false
+            manager.onCaptureRelease?()
         }
         return noErr
     }
@@ -59,11 +67,13 @@ final class GlobalHotkeyManager {
     func start(
         onPress: @escaping () -> Void,
         onRelease: @escaping () -> Void,
-        onCaptureWindowContext: @escaping () -> Void
+        onCapturePress: @escaping () -> Void,
+        onCaptureRelease: @escaping () -> Void
     ) {
         self.onPress = onPress
         self.onRelease = onRelease
-        self.onCaptureWindowContext = onCaptureWindowContext
+        self.onCapturePress = onCapturePress
+        self.onCaptureRelease = onCaptureRelease
         guard hotkeyRefs.isEmpty else { return }
 
         let eventTypes = [
@@ -103,6 +113,7 @@ final class GlobalHotkeyManager {
 
     func stop() {
         isPushToTalkPressed = false
+        isCapturePressed = false
         for hotkeyRef in hotkeyRefs {
             UnregisterEventHotKey(hotkeyRef)
         }

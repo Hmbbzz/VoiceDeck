@@ -1,25 +1,52 @@
 import AppKit
+import NaturalLanguage
+import Observation
 import SwiftUI
+
+@MainActor
+@Observable
+private final class FloatingIndicatorState {
+    var mode: FloatingIndicatorMode = .recording(transcript: "")
+    var audioActivity: Double = 0
+}
 
 @MainActor
 final class FloatingVoiceIndicatorController {
     private var panel: NSPanel?
     private var pendingHide: DispatchWorkItem?
+    private let indicatorState = FloatingIndicatorState()
 
-    func show() {
+    func show(
+        transcript: String = "",
+        captureStatus: WindowCaptureStatus? = nil,
+        audioActivity: Double = 0
+    ) {
         pendingHide?.cancel()
-        present(.recording)
+        indicatorState.audioActivity = audioActivity
+        present(.recording(transcript: transcript))
+    }
+
+    func updateRecording(transcript: String, captureStatus: WindowCaptureStatus?) {
+        guard panel?.isVisible == true else { return }
+        pendingHide?.cancel()
+        present(.recording(transcript: VoiceTranscriptFilter.sanitized(transcript) ?? ""))
+    }
+
+    func updateAudioActivity(_ activity: Double) {
+        guard panel?.isVisible == true else { return }
+        indicatorState.audioActivity = min(max(activity, 0), 1)
     }
 
     func showCaptureFeedback(success: Bool) {
         pendingHide?.cancel()
+        indicatorState.audioActivity = 0
         present(success ? .captureSuccess : .captureFailed)
 
         let hideWorkItem = DispatchWorkItem { [weak self] in
             self?.hide()
         }
         pendingHide = hideWorkItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2, execute: hideWorkItem)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.1, execute: hideWorkItem)
     }
 
     func hide() {
@@ -32,7 +59,7 @@ final class FloatingVoiceIndicatorController {
         if panel == nil {
             panel = makePanel()
         }
-        panel?.contentView = NSHostingView(rootView: FloatingVoiceIndicator(mode: mode))
+        indicatorState.mode = mode
         panel?.setContentSize(mode.size)
         positionPanel()
         panel?.orderFrontRegardless()
@@ -40,7 +67,7 @@ final class FloatingVoiceIndicatorController {
 
     private func makePanel() -> NSPanel {
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 132, height: 44),
+            contentRect: NSRect(origin: .zero, size: indicatorState.mode.size),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -51,7 +78,12 @@ final class FloatingVoiceIndicatorController {
         panel.hasShadow = false
         panel.ignoresMouseEvents = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
-        panel.contentView = NSHostingView(rootView: FloatingVoiceIndicator(mode: .recording))
+        let hostingView = NSHostingView(rootView: FloatingVoiceIndicator(state: indicatorState))
+        hostingView.wantsLayer = true
+        hostingView.layer?.backgroundColor = NSColor.clear.cgColor
+        hostingView.layer?.masksToBounds = false
+        hostingView.layer?.shadowOpacity = 0
+        panel.contentView = hostingView
         return panel
     }
 
@@ -60,82 +92,104 @@ final class FloatingVoiceIndicatorController {
         let screen = NSScreen.main ?? NSScreen.screens.first
         guard let visibleFrame = screen?.visibleFrame else { return }
         let size = panel.frame.size
-        let origin = NSPoint(
+        panel.setFrameOrigin(NSPoint(
             x: visibleFrame.midX - size.width / 2,
-            y: visibleFrame.minY + 24
-        )
-        panel.setFrameOrigin(origin)
+            y: visibleFrame.minY + 28
+        ))
     }
 }
 
 private enum FloatingIndicatorMode {
-    case recording
+    case recording(transcript: String)
     case captureSuccess
     case captureFailed
 
-    var size: NSSize {
+    var displayText: String {
         switch self {
-        case .recording: NSSize(width: 132, height: 44)
-        case .captureSuccess, .captureFailed: NSSize(width: 84, height: 44)
+        case let .recording(transcript):
+            TranscriptWindow.latestWords(from: VoiceTranscriptFilter.sanitized(transcript) ?? "", limit: 20)
+        case .captureSuccess:
+            "截图已附带"
+        case .captureFailed:
+            "截图未完成"
         }
+    }
+
+    var size: NSSize {
+        let textWidth = CGFloat(max(displayText.count, 4)) * 13
+        return NSSize(width: min(max(28 + textWidth, 132), 360), height: 48)
     }
 }
 
 private struct FloatingVoiceIndicator: View {
-    let mode: FloatingIndicatorMode
+    @Bindable var state: FloatingIndicatorState
 
     var body: some View {
-        Group {
-            switch mode {
-            case .recording:
-                HStack(spacing: 10) {
-                    EqualizerBars(flipped: false)
-                    Image(systemName: "mic.fill")
-                        .font(.system(size: 18, weight: .semibold))
-                    EqualizerBars(flipped: true)
-                }
-            case .captureSuccess, .captureFailed:
-                HStack(spacing: 10) {
-                    Image(systemName: "viewfinder")
-                        .font(.system(size: 17, weight: .medium))
-                    Rectangle()
-                        .fill(.white.opacity(0.34))
-                        .frame(width: 1, height: 16)
-                    Image(systemName: mode == .captureSuccess ? "checkmark" : "exclamationmark")
-                        .font(.system(size: 15, weight: .bold))
-                }
+        ZStack(alignment: .leading) {
+            HStack(spacing: 9) {
+                Circle()
+                    .fill(indicatorColor)
+                    .frame(width: 6, height: 6)
+                    .scaleEffect(state.audioActivity > 0.08 ? 1.12 : 1)
+
+                Text(state.mode.displayText.isEmpty ? " " : state.mode.displayText)
+                    .id(state.mode.displayText)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(Color.white.opacity(0.96))
+                    .lineLimit(1)
+                    .truncationMode(.head)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .transition(.asymmetric(
+                        insertion: .opacity.combined(with: .offset(x: 9)),
+                        removal: .opacity.combined(with: .offset(x: -9))
+                    ))
             }
         }
-        .foregroundStyle(.white)
-        .frame(width: mode.size.width, height: mode.size.height)
-        .background {
-            Capsule(style: .continuous)
-                .fill(Color.black.opacity(0.94))
+        .padding(.horizontal, 14)
+        .frame(width: state.mode.size.width, height: state.mode.size.height)
+        .background(Color(red: 0.14, green: 0.16, blue: 0.22))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .animation(.easeOut(duration: 0.22), value: state.mode.displayText)
+        .animation(.snappy(duration: 0.25), value: state.mode.size.width)
+        .animation(.easeOut(duration: 0.16), value: state.audioActivity > 0.08)
+    }
+
+    private var indicatorColor: Color {
+        switch state.mode {
+        case .captureSuccess:
+            Color(red: 0.40, green: 0.88, blue: 0.65)
+        case .captureFailed:
+            Color(red: 1.0, green: 0.67, blue: 0.40)
+        case .recording:
+            state.audioActivity > 0.08
+                ? Color(red: 0.40, green: 0.67, blue: 1.0)
+                : Color(red: 0.57, green: 0.63, blue: 0.74)
         }
-        .shadow(color: .black.opacity(0.22), radius: 8, y: 4)
     }
 }
 
-private struct EqualizerBars: View {
-    let flipped: Bool
-    @State private var isAnimating = false
+private enum TranscriptWindow {
+    static func latestWords(from text: String, limit: Int) -> String {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count > limit else { return trimmed }
 
-    private let heights: [CGFloat] = [10, 17, 13]
+        let tokenizer = NLTokenizer(unit: .word)
+        tokenizer.string = trimmed
+        let fullRange = trimmed.startIndex ..< trimmed.endIndex
+        let tokens = tokenizer.tokens(for: fullRange)
+        var start = trimmed.endIndex
 
-    var body: some View {
-        HStack(spacing: 4) {
-            ForEach(Array(heights.enumerated()), id: \.offset) { index, height in
-                RoundedRectangle(cornerRadius: 2, style: .continuous)
-                    .frame(width: 3, height: height)
-                    .scaleEffect(y: isAnimating ? (index == 1 ? 1.16 : 0.72) : 1, anchor: .center)
-                    .animation(
-                        .easeInOut(duration: 0.42).repeatForever(autoreverses: true).delay(Double(index) * 0.08),
-                        value: isAnimating
-                    )
+        for token in tokens.reversed() {
+            let candidate = trimmed[token.lowerBound ..< trimmed.endIndex]
+            if candidate.count > limit {
+                break
             }
+            start = token.lowerBound
         }
-        .scaleEffect(x: flipped ? -1 : 1, y: 1)
-        .opacity(0.9)
-        .onAppear { isAnimating = true }
+
+        if start == trimmed.endIndex {
+            return String(trimmed.suffix(limit))
+        }
+        return String(trimmed[start ..< trimmed.endIndex])
     }
 }
